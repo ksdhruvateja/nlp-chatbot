@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FixBridge Repair Assistant</title>
+<link rel="stylesheet" href="./static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Fix<span>Bridge</span> <small>Repair Assistant</small></div>
+  <div id="who" class="who"></div>
+</header>
+
+<main>
+  <!-- Sign-in (dev). In production the existing FixBridge session supplies the token. -->
+  <section id="login" class="card hidden">
+    <h2>Sign in</h2>
+    <p class="muted">Paste a token from <code>python -m scripts.seed</code>, or use dev login when <code>DEV_AUTH=true</code>.</p>
+    <label>API token <input id="token-input" placeholder="eyJ..."></label>
+    <button id="token-save">Use token</button>
+    <div class="or">or</div>
+    <label>Email <input id="dev-email" value="demo@example.com"></label>
+    <button id="dev-login" class="secondary">Dev login</button>
+    <p id="login-error" class="error"></p>
+  </section>
+
+  <div id="app" class="hidden layout">
+    <aside class="card side">
+      <h3>Your requests</h3>
+      <button id="new-request" class="secondary small">+ New request</button>
+      <ul id="request-list" class="request-list"></ul>
+    </aside>
+
+    <div class="content">
+      <!-- Phase 1: user input -->
+      <section id="new" class="card">
+        <h2>Describe your repair problem</h2>
+        <form id="request-form">
+          <div class="row">
+            <label>Property
+              <select id="property" name="property_id" required></select>
+            </label>
+            <label>Service category
+              <select id="category" name="service_category" required></select>
+            </label>
+          </div>
+          <label>Equipment (optional)
+            <select id="equipment" name="equipment_id"><option value="">— Not sure / not listed —</option></select>
+          </label>
+          <label>What's happening?
+            <textarea name="description" rows="5" minlength="10" maxlength="5000" required
+              placeholder="e.g. My electric water heater stopped producing hot water this morning. The breaker is on and there's no leak."></textarea>
+          </label>
+          <label>Photos, videos or documents
+            <input type="file" name="files" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain">
+          </label>
+          <p class="hint">Tip: a photo of the equipment's rating label (brand &amp; model number) gives much better answers.</p>
+          <button type="submit" id="submit-btn">Get diagnosis</button>
+          <p id="form-error" class="error"></p>
+        </form>
+        <details class="add-prop">
+          <summary>Add a property</summary>
+          <form id="property-form" class="row">
+            <input name="name" placeholder="Property name" required>
+            <select name="property_type"><option>house</option><option>apartment</option><option>condo</option><option>townhouse</option></select>
+            <input name="year_built" type="number" placeholder="Year built" min="1600" max="2100">
+            <button class="secondary small">Add</button>
+          </form>
+        </details>
+      </section>
+
+      <!-- Phase 8: result -->
+      <section id="result" class="card hidden"></section>
+    </div>
+  </div>
+</main>
+<script src="./static/app.js"></script>
+</body>
+</html>

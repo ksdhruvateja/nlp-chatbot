@@ -1,4 +1,20 @@
-numpy
-nltk
-scikit-learn
-tensorflow
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.7
+psycopg[binary]>=3.2
+python-multipart>=0.0.9
+httpx>=0.27
+pypdf>=4.0
+pillow>=10.0
+numpy>=1.26
+cryptography>=42.0
+jsonschema>=4.20
+pytest>=8.0
+boto3>=1.34
+beautifulsoup4>=4.12
+lxml>=5.0
+pytesseract>=0.3
+pypdfium2>=4.30
+# test-only
+moto[s3]>=5.0
+reportlab>=4.0

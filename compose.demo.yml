@@ -1,0 +1,46 @@
+# Isolated local demo. Do not deploy these example credentials publicly.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: fixbridge
+      POSTGRES_PASSWORD: fixbridge
+      POSTGRES_DB: fixbridge
+    volumes: ["demo-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixbridge -d fixbridge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  seed:
+    build: .
+    environment: &demo-env
+      DATABASE_URL: postgresql://fixbridge:fixbridge@db:5432/fixbridge?sslmode=disable
+      CLOUD_PROVIDER: demo
+      LOCAL_ENABLED: "false"
+      EMBEDDING_PROVIDER: hash
+      STORAGE_BACKEND: local
+      MEDIA_ROOT: /app/data/media
+      FIXBRIDGE_SECRET: local-demo-only-change-for-production
+      DEV_AUTH: "true"
+      RUN_WORKER_IN_PROCESS: "true"
+      PRICE_LOOKUP_PROVIDER: none
+    command: ["python", "-m", "scripts.seed"]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    build: .
+    environment: *demo-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["demo-media:/app/data"]
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  demo-db:
+  demo-media:
