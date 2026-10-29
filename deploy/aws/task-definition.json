@@ -1,7 +1,9 @@
 {
   "family": "fixbridge-ai",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
   "cpu": "1024",
   "memory": "2048",
   "executionRoleArn": "arn:aws:iam::REPLACE_ACCOUNT:role/fixbridge-ecs-execution",
@@ -10,29 +12,93 @@
     {
       "name": "api",
       "image": "REPLACE_ACCOUNT.dkr.ecr.REPLACE_REGION.amazonaws.com/fixbridge-ai:latest",
-      "portMappings": [{ "containerPort": 8000 }],
+      "portMappings": [
+        {
+          "containerPort": 8000
+        }
+      ],
       "essential": true,
       "environment": [
-        { "name": "STORAGE_BACKEND", "value": "s3" },
-        { "name": "S3_BUCKET", "value": "REPLACE_BUCKET" },
-        { "name": "S3_KMS_KEY_ID", "value": "REPLACE_KMS_KEY_ID" },
-        { "name": "AWS_REGION", "value": "REPLACE_REGION" },
-        { "name": "RUN_WORKER_IN_PROCESS", "value": "false" },
-        { "name": "CLOUD_PROVIDER", "value": "openai" },
-        { "name": "PRICE_LOOKUP_PROVIDER", "value": "serpapi" }
+        {
+          "name": "STORAGE_BACKEND",
+          "value": "s3"
+        },
+        {
+          "name": "S3_BUCKET",
+          "value": "REPLACE_BUCKET"
+        },
+        {
+          "name": "S3_KMS_KEY_ID",
+          "value": "REPLACE_KMS_KEY_ID"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "REPLACE_REGION"
+        },
+        {
+          "name": "RUN_WORKER_IN_PROCESS",
+          "value": "false"
+        },
+        {
+          "name": "CLOUD_PROVIDER",
+          "value": "gemini"
+        },
+        {
+          "name": "PRICE_LOOKUP_PROVIDER",
+          "value": "serpapi"
+        },
+        {
+          "name": "GEMINI_MODEL",
+          "value": "gemini-flash-latest"
+        },
+        {
+          "name": "LOCAL_ENABLED",
+          "value": "false"
+        },
+        {
+          "name": "EMBEDDING_PROVIDER",
+          "value": "gemini"
+        }
       ],
       "secrets": [
-        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:DATABASE_URL::" },
-        { "name": "MIGRATION_DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:MIGRATION_DATABASE_URL::" },
-        { "name": "FIXBRIDGE_SECRET", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:FIXBRIDGE_SECRET::" },
-        { "name": "MEDIA_ENCRYPTION_KEY", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:MEDIA_ENCRYPTION_KEY::" },
-        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:OPENAI_API_KEY::" },
-        { "name": "GEMINI_API_KEY", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:GEMINI_API_KEY::" },
-        { "name": "SERPAPI_API_KEY", "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:SERPAPI_API_KEY::" }
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:DATABASE_URL::"
+        },
+        {
+          "name": "MIGRATION_DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:MIGRATION_DATABASE_URL::"
+        },
+        {
+          "name": "FIXBRIDGE_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:FIXBRIDGE_SECRET::"
+        },
+        {
+          "name": "MEDIA_ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:MEDIA_ENCRYPTION_KEY::"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:OPENAI_API_KEY::"
+        },
+        {
+          "name": "GEMINI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:GEMINI_API_KEY::"
+        },
+        {
+          "name": "SERPAPI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REPLACE_REGION:REPLACE_ACCOUNT:secret:fixbridge/prod:SERPAPI_API_KEY::"
+        }
       ],
       "healthCheck": {
-        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)\""],
-        "interval": 30, "timeout": 5, "retries": 3, "startPeriod": 30
+        "command": [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
       },
       "logConfiguration": {
         "logDriver": "awslogs",

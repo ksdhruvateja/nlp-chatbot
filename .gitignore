@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
+!.env.gemini.example
 data/
 .pytest_cache/

@@ -1,12 +1,16 @@
 """Exercise a running demo over HTTP: python -m scripts.smoke_demo [base_url]."""
-import sys
+import argparse
 import time
 
 import httpx
 
 
 def main():
-    with httpx.Client(base_url=sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000",
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("base_url", nargs="?", default="http://127.0.0.1:8000")
+    parser.add_argument("--require-provider", choices=["gemini", "openai", "local", "demo"])
+    args = parser.parse_args()
+    with httpx.Client(base_url=args.base_url,
                       timeout=15) as client:
         def call(method, path, **kwargs):
             response = client.request(method, path, **kwargs)
@@ -31,7 +35,10 @@ def main():
         assert result, f"No result: {request['status']} {request.get('error')}"
         assert result["outcome"] in {"diy_plan", "safety_warning", "clarification", "professional"}, result
         assert result.get("sources"), "Expected citations from seeded knowledge"
-        print(f"Demo HTTP smoke passed: {result['outcome']}, {len(result['sources'])} sources")
+        if args.require_provider:
+            assert result.get("provider") == args.require_provider, f"Unexpected provider: {result.get('provider')}"
+        print(f"HTTP smoke passed: provider={result.get('provider')}, model={result.get('model')}, "
+              f"outcome={result['outcome']}, {len(result['sources'])} sources")
 
 
 if __name__ == "__main__":

@@ -144,9 +144,10 @@ def ready():
     except Exception:  # noqa: BLE001
         db_ok = False
     providers = health_report()
-    ai_ok = any(p["enabled"] and p["configured"] and not p["circuit_open"] for p in providers.values())
+    ai_ok = any(p["enabled"] and p["configured"] and not p["circuit_open"]
+                and p.get("reachable", True) for p in providers.values())
     body = {"database": db_ok, "ai_available": ai_ok, "providers": providers}
-    return JSONResponse(body, status_code=200 if db_ok else 503)
+    return JSONResponse(body, status_code=200 if db_ok and ai_ok else 503)
 
 
 # ---------------------------------------------------------------- identity

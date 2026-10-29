@@ -23,6 +23,13 @@ Stack: **Python / FastAPI**, **PostgreSQL 16 + pgvector** (Neon in production), 
 
 The orchestration between phases lives in `app/pipeline/runner.py`.
 
+## Real AI: Google Gemini
+
+See [Gemini setup and live validation](deploy/gemini.md) for the real diagnosis,
+image analysis, video-audio transcription and semantic retrieval pipeline.
+Use `compose.gemini.yml` with secure credentials; `compose.demo.yml` continues to
+provide a separate offline demonstration. Model weights are hosted by Google.
+
 ## Local demo (no API keys required)
 
 Run `docker compose -f compose.demo.yml up --build -d`. This starts PostgreSQL
@@ -35,8 +42,8 @@ add `-v` only to delete the database and uploaded media.
 The demo uses deterministic templates, hash embeddings and sample prices. It
 does not provide model reasoning or production repair advice. Production
 authentication, licensed knowledge, booking and model/price credentials remain
-external integrations. Video frames are processed, but audio transcription is
-not implemented; describe audible symptoms in the problem text.
+external integrations. Video speech can be transcribed in the Gemini configuration;
+the offline demo cannot transcribe audio.
 
 ## Quick start (native Python / existing database)
 
@@ -97,7 +104,7 @@ With `PRICE_LOOKUP_PROVIDER=serpapi` and `SERPAPI_API_KEY`, parts without a fres
 
 - `sample_knowledge/` and the `SAMPLE-*` products are **illustrative content I wrote for testing**. Replace them with licensed manuals and a real price feed.
 - Safety rules (`PROHIBITED`, `WARNINGS`, `HIGH_RISK_CATEGORIES`) are deliberately conservative. Have them reviewed by someone qualified for your jurisdictions.
-- OCR for scanned PDFs needs `pytesseract`, `pypdfium2` + tesseract. Audio is extracted from video but not transcribed yet.
+- OCR for scanned PDFs needs `pytesseract`, `pypdfium2` + tesseract. Video audio transcription requires the configured Gemini provider.
 - The rate limiter and circuit breakers are in-memory, i.e. per process. Move them to Redis when you scale out.
 
 ## Repeatable validation

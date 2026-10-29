@@ -64,6 +64,7 @@ class PreparedContext:
         parts += [f"{c['question']} {c['answer']}" for c in self.clarifications if c.get("answer")]
         parts += [e.get("kind", "") for e in self.equipment]
         parts += [d["text"][:1500] for d in self.documents]
+        parts += [a["transcript"][:1500] for a in self.audio_notes if a.get("transcript")]
         return "\n".join(p for p in parts if p)
 
 
@@ -144,6 +145,19 @@ def prepare_media(media_row: dict) -> dict:
             derived["frame_keys"] = [store.put(_resize_jpeg(f)[0])[0] for f in frames]
             if audio:
                 derived["audio_key"], _ = store.put(audio)
+                from ..ai.transcription import transcribe
+                try:
+                    derived["transcript"] = transcribe(audio, request_id=media_row.get("request_id"))
+                    derived["transcription_status"] = "completed"
+                    if not derived["transcript"]:
+                        derived["note"] = "No intelligible speech found in the video audio"
+                except Exception as exc:
+                    # Failed transcription must not discard usable video frames.
+                    # No provider bodies or transcripts belong in application logs.
+                    derived["transcription_status"] = "unavailable"
+                    derived["note"] = "Audio could not be transcribed; describe audible symptoms in text"
+                    log.warning("audio transcription unavailable for media %s (%s)",
+                                media_row["id"], type(exc).__name__)
             if not frames:
                 derived["warning"] = "Could not extract frames from video"
         else:
@@ -232,14 +246,15 @@ def prepare_context(request_id: str) -> PreparedContext:
     ctx.images = ctx.images[:MAX_IMAGES_FOR_MODEL]
 
     customer_text = "\n".join([req["description"], *(str(c["answer"] or "") for c in clarifications),
-                                *(d["text"][:1500] for d in ctx.documents)])
+                                *(d["text"] for d in ctx.documents),
+                                *(a["transcript"] for a in ctx.audio_notes if a.get("transcript"))])
     # Only equipment the customer selected, or clearly mentioned, shapes facts and retrieval;
     # otherwise e.g. a water heater's model number would skew a toilet search.
     lowered = customer_text.lower()
     relevant = [e for e in equipment if e["id"] == req["equipment_id"] or e["kind"].lower() in lowered
                 or (e["model_number"] and e["model_number"].lower() in lowered)]
     ctx.equipment = relevant
-    facts = extract_facts(ctx.text_for_search())
+    facts = extract_facts(customer_text)
     for e in relevant:
         if e["model_number"]:
             facts["model_numbers"] = sorted(set(facts["model_numbers"]) | {e["model_number"].upper()})

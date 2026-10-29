@@ -3,6 +3,7 @@ offline demo adapter for trying the full workflow without any model."""
 from __future__ import annotations
 
 import httpx
+from urllib.parse import quote
 
 from ..config import get_settings
 from .base import Adapter, AdapterError, ModelRequest, ModelResult, parse_json
@@ -12,7 +13,8 @@ def _raise_for(resp: httpx.Response, provider: str) -> None:
     if resp.status_code < 400:
         return
     retryable = resp.status_code in (408, 409, 429) or resp.status_code >= 500
-    raise AdapterError(f"{provider} HTTP {resp.status_code}: {resp.text[:300]}", retryable=retryable)
+    # Error bodies can echo prompts, media or credentials. Log status only.
+    raise AdapterError(f"{provider} HTTP {resp.status_code}", retryable=retryable)
 
 
 def _post(url: str, provider: str, timeout_s: float, **kwargs) -> dict:
@@ -21,9 +23,15 @@ def _post(url: str, provider: str, timeout_s: float, **kwargs) -> dict:
     except httpx.TimeoutException as exc:
         raise AdapterError(f"{provider} timeout after {timeout_s}s", retryable=True) from exc
     except httpx.HTTPError as exc:
-        raise AdapterError(f"{provider} connection error: {exc}", retryable=True) from exc
+        raise AdapterError(f"{provider} connection error ({type(exc).__name__})", retryable=True) from exc
     _raise_for(resp, provider)
-    return resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise AdapterError(f"{provider} returned invalid JSON", retryable=True) from exc
+    if not isinstance(data, dict):
+        raise AdapterError(f"{provider} returned a non-object response", retryable=True)
+    return data
 
 
 class OpenAIAdapter(Adapter):
@@ -66,26 +74,47 @@ class GeminiAdapter(Adapter):
     def available(self) -> bool:
         return bool(self.key)
 
+    def generate_parts(self, system: str, parts: list[dict], schema: dict | None,
+                       timeout_s: float, max_tokens: int = 3000,
+                       temperature: float = 0.2) -> ModelResult:
+        if not self.available():
+            raise AdapterError("Gemini key is not configured", retryable=False)
+        config = {"temperature": temperature, "maxOutputTokens": max_tokens,
+                  "responseMimeType": "application/json"}
+        if self.model.removeprefix("models/").startswith("gemini-2.5-flash"):
+            # Other Gemini families may require different thinking controls.
+            config["thinkingConfig"] = {"thinkingBudget": 0}
+        if schema:
+            config["responseJsonSchema"] = schema
+        body = {"systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": parts}], "generationConfig": config}
+        model = quote(self.model.removeprefix("models/"), safe="")
+        data = _post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                     self.provider, timeout_s, headers={"x-goog-api-key": self.key}, json=body)
+        try:
+            candidate = data["candidates"][0]
+            finish = candidate.get("finishReason")
+            if finish == "MAX_TOKENS":
+                raise AdapterError("gemini output token limit reached", retryable=True)
+            if finish != "STOP":
+                raise AdapterError("gemini did not complete generation", retryable=False)
+            text = "".join(p.get("text", "") for p in candidate["content"]["parts"]
+                           if not p.get("thought"))
+            if not text.strip():
+                raise AdapterError("gemini returned empty content", retryable=True)
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise AdapterError("gemini returned no usable candidate", retryable=False) from exc
+        usage = data.get("usageMetadata") or {}
+        return ModelResult(self.provider, data.get("modelVersion") or self.model, text, parse_json(text),
+                           usage.get("promptTokenCount"), usage.get("candidatesTokenCount"))
+
     def generate(self, req: ModelRequest, timeout_s: float) -> ModelResult:
         parts: list[dict] = [{"text": req.user}]
         for img in req.images:
             parts += [{"text": f"[Image {img['label']}]"},
-                      {"inline_data": {"mime_type": "image/jpeg", "data": img["jpeg_b64"]}}]
-        body = {"systemInstruction": {"parts": [{"text": req.system}]},
-                "contents": [{"role": "user", "parts": parts}],
-                "generationConfig": {"temperature": req.temperature, "maxOutputTokens": req.max_output_tokens,
-                                     "responseMimeType": "application/json"}}
-        data = _post(f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
-                     self.provider, timeout_s, params={"key": self.key}, json=body)
-        try:
-            cand = data["candidates"][0]
-            text = "".join(p.get("text", "") for p in cand["content"]["parts"])
-        except (KeyError, IndexError) as exc:
-            reason = data.get("promptFeedback", {}).get("blockReason") or "no candidates"
-            raise AdapterError(f"gemini returned no content ({reason})", retryable=False) from exc
-        usage = data.get("usageMetadata", {})
-        return ModelResult(self.provider, self.model, text, parse_json(text),
-                           usage.get("promptTokenCount"), usage.get("candidatesTokenCount"))
+                      {"inlineData": {"mimeType": "image/jpeg", "data": img["jpeg_b64"]}}]
+        return self.generate_parts(req.system, parts, req.json_schema, timeout_s,
+                                   req.max_output_tokens, req.temperature)
 
 
 class LocalAdapter(Adapter):
@@ -101,8 +130,10 @@ class LocalAdapter(Adapter):
 
     def ping(self, timeout_s: float = 3) -> bool:
         try:
-            return httpx.get(f"{self.base}/api/tags", timeout=timeout_s).status_code == 200
-        except httpx.HTTPError:
+            # A reachable server is insufficient when the configured weights are absent.
+            response = httpx.post(f"{self.base}/api/show", json={"model": self.model}, timeout=timeout_s)
+            return response.status_code == 200 and isinstance(response.json().get("model_info"), dict)
+        except (httpx.HTTPError, ValueError, AttributeError):
             return False
 
     def generate(self, req: ModelRequest, timeout_s: float) -> ModelResult:

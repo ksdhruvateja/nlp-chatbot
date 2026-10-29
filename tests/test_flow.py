@@ -222,7 +222,8 @@ def test_admin_review_and_eval_dataset(client, customer, admin, toilet_diagnosis
 
 def test_ready_endpoint(client):
     r = client.get("/health/ready")
-    assert r.status_code == 200 and r.json()["database"] is True
+    assert r.status_code == 503 and r.json()["database"] is True
+    assert r.json()["ai_available"] is False
 
 
 def test_unselected_equipment_does_not_skew_context(client, customer, toilet_diagnosis):

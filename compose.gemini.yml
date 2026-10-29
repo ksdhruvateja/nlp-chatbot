@@ -1,0 +1,55 @@
+# Real Gemini inference. Separate database/volumes prevent mixing demo/hash vectors.
+# Start: docker compose -p fixbridge-gemini -f compose.gemini.yml up --build -d
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: fixbridge
+      POSTGRES_PASSWORD: ${FIXBRIDGE_DB_PASSWORD:?Set FIXBRIDGE_DB_PASSWORD in .env}
+      POSTGRES_DB: fixbridge
+    volumes: ["gemini-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixbridge -d fixbridge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  seed:
+    build: .
+    environment: &gemini-env
+      # Percent-encode special characters in the database URL password.
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL for the db service in .env}
+      CLOUD_PROVIDER: gemini
+      CLOUD_ENABLED: "true"
+      FIXBRIDGE_GEMINI_KEY: ${FIXBRIDGE_GEMINI_KEY:?Set FIXBRIDGE_GEMINI_KEY securely}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
+      EMBEDDING_PROVIDER: gemini
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      EMBEDDING_DIM: "384"
+      TRANSCRIBE_AUDIO: "true"
+      LOCAL_ENABLED: "false"
+      STORAGE_BACKEND: local
+      MEDIA_ROOT: /app/data/media
+      FIXBRIDGE_SECRET: ${FIXBRIDGE_SECRET:?Set a strong FIXBRIDGE_SECRET}
+      MEDIA_ENCRYPTION_KEY: ${MEDIA_ENCRYPTION_KEY:?Set MEDIA_ENCRYPTION_KEY to a Fernet key}
+      DEV_AUTH: ${DEV_AUTH:-false}
+      RUN_WORKER_IN_PROCESS: "true"
+      PRICE_LOOKUP_PROVIDER: none
+    command: ["python", "-m", "scripts.seed"]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    build: .
+    environment: *gemini-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["127.0.0.1:${FIXBRIDGE_PORT:-8002}:8000"]
+    volumes: ["gemini-media:/app/data"]
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+volumes:
+  gemini-db:
+  gemini-media:

@@ -31,16 +31,18 @@ class Settings:
     max_upload_mb: int
     allowed_mime_prefixes: tuple[str, ...] = field(default=("image/", "video/", "application/pdf", "text/plain"))
 
-    cloud_provider: str = "openai"
+    cloud_provider: str = "gemini"
     cloud_enabled: bool = True
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-flash-latest"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    transcribe_audio: bool = True
     cloud_timeout_s: float = 45
     cloud_retries: int = 2
 
-    local_enabled: bool = True
+    local_enabled: bool = False
     local_base_url: str = "http://localhost:11434"
     local_model: str = "llama3.1:8b"
     local_timeout_s: float = 120
@@ -63,15 +65,18 @@ def get_settings() -> Settings:
         media_encryption_key=os.getenv("MEDIA_ENCRYPTION_KEY", ""),
         media_root=Path(os.getenv("MEDIA_ROOT", "./data/media")),
         max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "50")),
-        cloud_provider=os.getenv("CLOUD_PROVIDER", "openai").lower(),
+        cloud_provider=os.getenv("CLOUD_PROVIDER", "gemini").lower(),
         cloud_enabled=_bool("CLOUD_ENABLED", True),
         openai_api_key=os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY", ""),
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_KEY", ""),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        gemini_api_key=(os.getenv("FIXBRIDGE_GEMINI_KEY") or os.getenv("GEMINI_API_KEY")
+                        or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_KEY", "")),
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+        gemini_embedding_model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001"),
+        transcribe_audio=_bool("TRANSCRIBE_AUDIO", True),
         cloud_timeout_s=float(os.getenv("CLOUD_TIMEOUT_S", "45")),
         cloud_retries=int(os.getenv("CLOUD_RETRIES", "2")),
-        local_enabled=_bool("LOCAL_ENABLED", True),
+        local_enabled=_bool("LOCAL_ENABLED", False),
         local_base_url=os.getenv("LOCAL_BASE_URL", "http://localhost:11434"),
         local_model=os.getenv("LOCAL_MODEL", "llama3.1:8b"),
         local_timeout_s=float(os.getenv("LOCAL_TIMEOUT_S", "120")),

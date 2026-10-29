@@ -1,5 +1,8 @@
 .git
 .env
+.env.*
+!.env.example
+!.env.gemini.example
 data/
 tests/
 **/__pycache__
